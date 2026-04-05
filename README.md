@@ -1,6 +1,4 @@
-# 農會 RAG Pipeline (MVP)
-
-信用部法規文件的知識庫問答系統。文件進 → 向量出 → 問答回。
+# RAG Pipeline
 
 ## 技術棧
 
