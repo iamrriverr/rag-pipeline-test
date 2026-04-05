@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Farmer RAG - 對話測試</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Microsoft JhengHei", sans-serif;
+    margin: 0; padding: 0;
+    background: #f5f5f7; color: #1d1d1f;
+    display: flex; height: 100vh;
+  }
+  aside {
+    width: 320px; background: #fff;
+    border-right: 1px solid #e5e5e7;
+    padding: 20px; overflow-y: auto;
+  }
+  main {
+    flex: 1; display: flex; flex-direction: column;
+  }
+  h1 { font-size: 18px; margin: 0 0 16px; }
+  h2 { font-size: 14px; color: #6e6e73; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .upload-box {
+    border: 2px dashed #c7c7cc; border-radius: 8px;
+    padding: 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .upload-box:hover { border-color: #007aff; background: #f0f8ff; }
+  .upload-box input[type=file] { display: none; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: #6e6e73; margin-bottom: 4px; }
+  .field input, .field textarea {
+    width: 100%; padding: 8px 10px; font-size: 14px;
+    border: 1px solid #d2d2d7; border-radius: 6px;
+    font-family: inherit;
+  }
+  button {
+    padding: 8px 16px; font-size: 14px; cursor: pointer;
+    background: #007aff; color: #fff; border: none; border-radius: 6px;
+    font-family: inherit;
+  }
+  button:hover { background: #0063cc; }
+  button:disabled { background: #c7c7cc; cursor: not-allowed; }
+  .status { font-size: 12px; color: #6e6e73; margin-top: 8px; }
+  .ingest-result {
+    margin-top: 10px; padding: 10px; background: #f0f8ff;
+    border-radius: 6px; font-size: 12px; white-space: pre-wrap;
+    max-height: 200px; overflow-y: auto;
+  }
+  .ingest-result.error { background: #fff0f0; color: #d70015; }
+
+  .chat-log {
+    flex: 1; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .msg {
+    max-width: 80%; padding: 12px 16px; border-radius: 12px;
+    line-height: 1.6; font-size: 14px; white-space: pre-wrap;
+  }
+  .msg.user { align-self: flex-end; background: #007aff; color: #fff; }
+  .msg.bot { align-self: flex-start; background: #fff; border: 1px solid #e5e5e7; }
+  .msg.bot .meta { font-size: 11px; color: #6e6e73; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e7; }
+  .refs { margin-top: 8px; }
+  .ref-item {
+    font-size: 11px; padding: 6px 8px; background: #f5f5f7;
+    border-radius: 4px; margin-top: 4px;
+  }
+  .ref-item .title { color: #007aff; font-weight: 600; }
+  .ref-item .score { color: #6e6e73; float: right; }
+  .confidence { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 6px; }
+  .confidence.high { background: #d4f4dd; color: #006633; }
+  .confidence.medium { background: #fff3cd; color: #856404; }
+  .confidence.low { background: #f8d7da; color: #721c24; }
+  .confidence.not_found { background: #e0e0e0; color: #555; }
+
+  .input-area {
+    padding: 16px 20px; background: #fff; border-top: 1px solid #e5e5e7;
+    display: flex; gap: 8px;
+  }
+  .input-area textarea {
+    flex: 1; padding: 10px; border: 1px solid #d2d2d7; border-radius: 8px;
+    font-size: 14px; font-family: inherit; resize: none; height: 60px;
+  }
+
+  .loading { display: inline-block; }
+  .loading::after {
+    content: "..."; animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0%, 20% { content: "."; }
+    40% { content: ".."; }
+    60%, 100% { content: "..."; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <h1>📚 Farmer RAG</h1>
+
+  <h2>上傳文件</h2>
+  <label class="upload-box" for="file-input" id="drop-zone">
+    <div id="file-label">點擊選擇檔案<br><small style="color:#6e6e73">PDF / DOCX / MD / TXT / CSV / XLSX</small></div>
+    <input type="file" id="file-input" accept=".pdf,.docx,.md,.txt,.csv,.xlsx">
+  </label>
+  <div class="field" style="margin-top:10px">
+    <label>文件標題（可選）</label>
+    <input type="text" id="title-input" placeholder="留空則用檔名">
+  </div>
+  <div class="field">
+    <label>部門（可選）</label>
+    <input type="text" id="dept-input" placeholder="例如：信用部">
+  </div>
+  <button id="upload-btn" disabled>上傳並 Ingest</button>
+  <div id="ingest-status" class="status"></div>
+  <div id="ingest-result" class="ingest-result" style="display:none"></div>
+
+  <h2>知識庫狀態</h2>
+  <div class="status" id="kb-status">載入中...</div>
+  <button onclick="refreshStatus()" style="margin-top:6px; background:#6e6e73">重新整理</button>
+  <button onclick="resetStore()" style="margin-top:6px; background:#d70015">清空向量庫</button>
+</aside>
+
+<main>
+  <div class="chat-log" id="chat-log">
+    <div class="msg bot">
+      您好！我是農會信用部知識助手。<br>
+      請先從左側上傳文件，然後在下方輸入問題。
+    </div>
+  </div>
+  <div class="input-area">
+    <textarea id="query-input" placeholder="輸入問題（Enter 送出，Shift+Enter 換行）"></textarea>
+    <button id="send-btn">送出</button>
+  </div>
+</main>
+
+<script>
+const fileInput = document.getElementById('file-input');
+const fileLabel = document.getElementById('file-label');
+const uploadBtn = document.getElementById('upload-btn');
+const ingestStatus = document.getElementById('ingest-status');
+const ingestResult = document.getElementById('ingest-result');
+const titleInput = document.getElementById('title-input');
+const deptInput = document.getElementById('dept-input');
+const kbStatus = document.getElementById('kb-status');
+const chatLog = document.getElementById('chat-log');
+const queryInput = document.getElementById('query-input');
+const sendBtn = document.getElementById('send-btn');
+
+let selectedFile = null;
+
+fileInput.addEventListener('change', e => {
+  selectedFile = e.target.files[0];
+  if (selectedFile) {
+    fileLabel.innerHTML = `已選擇：<strong>${selectedFile.name}</strong><br><small style="color:#6e6e73">${(selectedFile.size/1024).toFixed(1)} KB</small>`;
+    uploadBtn.disabled = false;
+  }
+});
+
+uploadBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  uploadBtn.disabled = true;
+  ingestStatus.innerHTML = '<span class="loading">處理中</span>';
+  ingestResult.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('title', titleInput.value);
+  formData.append('department', deptInput.value);
+
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.error) {
+      ingestResult.className = 'ingest-result error';
+      ingestResult.textContent = data.error;
+    } else {
+      ingestResult.className = 'ingest-result';
+      ingestResult.textContent =
+        `✓ 成功 ingest\n` +
+        `標題：${data.title}\n` +
+        `類型：${data.file_type}\n` +
+        `Sections: ${data.section_count}\n` +
+        `Chunks: ${data.chunk_count}\n` +
+        `品質問題: ${data.quality_issues}`;
+    }
+    ingestResult.style.display = 'block';
+    ingestStatus.textContent = '';
+    refreshStatus();
+  } catch (err) {
+    ingestResult.className = 'ingest-result error';
+    ingestResult.textContent = '錯誤：' + err.message;
+    ingestResult.style.display = 'block';
+    ingestStatus.textContent = '';
+  }
+  uploadBtn.disabled = false;
+});
+
+async function resetStore() {
+  if (!confirm('確定要清空所有向量資料嗎？此動作無法復原。')) return;
+  try {
+    const res = await fetch('/reset', { method: 'POST' });
+    const data = await res.json();
+    kbStatus.textContent = `已刪除 ${data.deleted} 個 chunks`;
+    refreshStatus();
+  } catch (err) {
+    alert('清空失敗：' + err.message);
+  }
+}
+
+async function refreshStatus() {
+  try {
+    const res = await fetch('/status');
+    const data = await res.json();
+    kbStatus.textContent = `共 ${data.chunks_in_store} 個 chunks`;
+  } catch {
+    kbStatus.textContent = '無法連線';
+  }
+}
+
+async function sendQuery() {
+  const q = queryInput.value.trim();
+  if (!q) return;
+  queryInput.value = '';
+  sendBtn.disabled = true;
+
+  // 顯示使用者訊息
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg user';
+  userMsg.textContent = q;
+  chatLog.appendChild(userMsg);
+
+  // 顯示載入中
+  const loadMsg = document.createElement('div');
+  loadMsg.className = 'msg bot';
+  loadMsg.innerHTML = '<span class="loading">思考中</span>';
+  chatLog.appendChild(loadMsg);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  try {
+    const formData = new FormData();
+    formData.append('query', q);
+    const res = await fetch('/chat', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    // 組裝回覆
+    let html = '';
+    html += `<span class="confidence ${data.confidence}">${data.confidence}</span>`;
+    html += `<span>${escapeHtml(data.answer).replace(/\n/g, '<br>')}</span>`;
+    if (data.references && data.references.length) {
+      html += `<div class="meta">參考來源 (${data.references.length})</div>`;
+      html += '<div class="refs">';
+      for (const r of data.references) {
+        html += `<div class="ref-item">
+          <span class="score">${(r.relevance_score * 100).toFixed(1)}%</span>
+          <div class="title">${escapeHtml(r.breadcrumb)}</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+    loadMsg.innerHTML = html;
+  } catch (err) {
+    loadMsg.innerHTML = '錯誤：' + escapeHtml(err.message);
+  }
+  chatLog.scrollTop = chatLog.scrollHeight;
+  sendBtn.disabled = false;
+  queryInput.focus();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+sendBtn.addEventListener('click', sendQuery);
+queryInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendQuery();
+  }
+});
+
+refreshStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+[project]
+name = "farmer-rag"
+version = "0.1.0"
+description = "農會 RAG Pipeline MVP"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "chromadb",
+    "langchain",
+    "langchain-community",
+    "langchain-chroma",
+    "langchain-ollama",
+    "langchain-openai",
+    "docling",
+    "python-multipart",
+    "pydantic-settings",
+    "pandas",
+    "openpyxl",
+    "PyMuPDF",
+    "tenacity",
+    "openai",
+    "tabulate",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

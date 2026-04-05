@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+data/chroma/
+data/uploads/
+data/inspect/
+.pytest_cache/
+.ruff_cache/
+data/inspect_vlm/
+uv.lock
+
