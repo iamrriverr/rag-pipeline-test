@@ -21,6 +21,7 @@ dependencies = [
     "tenacity",
     "openai",
     "tabulate",
+    "streamlit",
 ]
 
 [dependency-groups]
