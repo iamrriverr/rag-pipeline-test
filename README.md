@@ -7,6 +7,7 @@
 - **LLM**: OpenAI GPT
 - **Vector DB**: Chroma (cosine)
 - **Framework**: FastAPI + LangChain
+- **UI**: Streamlit
 
 ## 快速開始
 
@@ -20,26 +21,43 @@ cp .env.example .env
 
 # 3. 跑測試
 uv run pytest tests/
+```
 
-# 4. 啟動 API + UI
+## 啟動方式
+
+### Streamlit UI（推薦）
+
+```bash
+uv run streamlit run app.py
+```
+
+瀏覽器打開 <http://localhost:8501>，含文件上傳、對話、知識庫管理。
+
+### FastAPI
+
+```bash
 uv run uvicorn src.api.main:app --reload --port 3000
 ```
 
-瀏覽器打開 http://localhost:3000 即可使用上傳/對話介面。
+瀏覽器打開 <http://localhost:3000>，含簡易上傳/對話介面。
 
 ## 結構
 
 ```
-src/
-├── parsers/       # Stage 1: 文件解析（PDF/DOCX/MD/TXT/CSV/XLSX）
-├── vlm/           # GPT-4o Vision 處理表格與流程圖
-├── cleaners/      # Stage 2: 文本清洗（CJK 空白、法規結構、PII 遮罩）
-├── splitters/     # Stage 3: 分塊（Section）+ 切片（Chunk）+ breadcrumb
-├── vectorstore/   # Stage 4: Chroma 持久化
-├── pipeline/      # Stage 1-4 串接
-├── retriever/     # Stage 5: 向量檢索 + Section 上下文補全
-├── generator/     # Stage 6: RAG 問答（含引用來源）
-└── api/           # FastAPI endpoints + 靜態 UI
+├── app.py             # Streamlit UI
+├── src/
+│   ├── parsers/       # Stage 1: 文件解析（PDF/DOCX/MD/TXT/CSV/XLSX）
+│   ├── vlm/           # GPT-4o Vision 處理表格與流程圖
+│   ├── cleaners/      # Stage 2: 文本清洗（CJK 空白、法規結構、PII 遮罩）
+│   ├── splitters/     # Stage 3: 分塊（Section）+ 切片（Chunk）+ breadcrumb
+│   ├── vectorstore/   # Stage 4: Chroma 持久化
+│   ├── pipeline/      # Stage 1-4 串接
+│   ├── retriever/     # Stage 5: 向量檢索 + Section 上下文補全
+│   ├── generator/     # Stage 6: RAG 問答（含引用來源）
+│   └── api/           # FastAPI endpoints + 靜態 UI
+├── scripts/
+│   └── inspect_stages.py  # 逐 Stage 檢查工具
+└── tests/
 ```
 
 ## Heading 階層（法規文件）
