@@ -78,7 +78,22 @@ def _is_italic(para: Paragraph) -> bool:
 
 
 def _classify_paragraph(para: Paragraph, text: str, is_bold: bool) -> BlockType:
-    # Rule 4: CATEGORY_HEADING
+    # Rule 4: REGULATION_TITLE
+    if is_bold and _REGULATION_STARTS.match(text) and _REGULATION_ENDS.search(text):
+        return BlockType.REGULATION_TITLE
+
+    # Rule 5: ESTABLISHMENT_DATE / REVISION_DATE
+    m = _RE_DATE_END.match(text)
+    if m:
+        return BlockType.ESTABLISHMENT_DATE if m.group(1) == "訂定" else BlockType.REVISION_DATE
+
+    # Rule 7: TOC_ENTRY — must come before structural headings so that TOC lines
+    # like「第一章 通則\t1」are not misclassified as CHAPTER_HEADING.
+    # DATE and REGULATION_TITLE are safe above this because they never carry tab+pagenum.
+    if _RE_TOC_ENTRY.match(text):
+        return BlockType.TOC_ENTRY
+
+    # Rule 8: CATEGORY_HEADING (moved after TOC_ENTRY)
     if (
         is_bold
         and len(text) < 30
@@ -87,34 +102,21 @@ def _classify_paragraph(para: Paragraph, text: str, is_bold: bool) -> BlockType:
     ):
         return BlockType.CATEGORY_HEADING
 
-    # Rule 5: REGULATION_TITLE
-    if is_bold and _REGULATION_STARTS.match(text) and _REGULATION_ENDS.search(text):
-        return BlockType.REGULATION_TITLE
-
-    # Rule 6: ESTABLISHMENT_DATE / REVISION_DATE
-    m = _RE_DATE_END.match(text)
-    if m:
-        return BlockType.ESTABLISHMENT_DATE if m.group(1) == "訂定" else BlockType.REVISION_DATE
-
-    # Rule 7: CHAPTER_HEADING
+    # Rule 9: CHAPTER_HEADING
     if _RE_CHAPTER.match(text):
         return BlockType.CHAPTER_HEADING
 
-    # Rule 8: SUBSECTION_HEADING
+    # Rule 10: SUBSECTION_HEADING
     if _RE_SUBSECTION.match(text):
         return BlockType.SUBSECTION_HEADING
 
-    # Rule 9: ARTICLE
+    # Rule 11: ARTICLE
     if _RE_ARTICLE.match(text):
         return BlockType.ARTICLE
 
-    # Rule 10: POINT
+    # Rule 12: POINT
     if _RE_POINT.match(text):
         return BlockType.POINT
-
-    # Rule 11: TOC_ENTRY
-    if _RE_TOC_ENTRY.match(text):
-        return BlockType.TOC_ENTRY
 
     # Rule 12: Heading style — but regulation title pattern takes priority
     style_name = ""
